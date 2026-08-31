@@ -36,7 +36,7 @@
         canvas {
             background: #000;
             border: 2px solid #00ff00;
-            box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
             max-width: 100%;
             max-height: 100%;
         }
@@ -44,11 +44,13 @@
             position: absolute;
             top: 15px;
             left: 20px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
             color: #00ff00;
-            text-shadow: 0 0 5px #00ff00;
+            text-shadow: 0 0 6px #00ff00;
             z-index: 10;
+            display: flex;
+            gap: 20px;
         }
         #touch-controls {
             position: absolute;
@@ -85,6 +87,42 @@
             background: rgba(0, 255, 0, 0.4);
             transform: scale(0.92);
         }
+        #game-over-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 0, 0, 0.25);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-shadow: 0 0 10px #ff0000;
+        }
+        #game-over-overlay h1 {
+            color: #ff0000;
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+        #game-over-overlay p {
+            color: #ffffff;
+            font-size: 18px;
+            margin-bottom: 25px;
+        }
+        #btn-restart {
+            padding: 12px 28px;
+            background: #ff0000;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #ff0000;
+            font-family: inherit;
+        }
         @media (min-width: 900px) {
             #touch-controls { display: none; }
         }
@@ -92,8 +130,21 @@
 </head>
 <body>
     <div id="game-container">
-        <div id="ui">TUNNEL RUNNER | LEVEL: <span id="level">1</span> | SCORE: <span id="score">0</span></div>
+        <div id="ui">
+            <div>TUNNEL RUNNER</div>
+            <div>NIVEL: <span id="level">1</span></div>
+            <div>SCORE: <span id="score">0</span></div>
+            <div>VIDAS: <span id="lives">❤️❤️❤️</span></div>
+        </div>
+        
         <canvas id="gameCanvas" width="640" height="480"></canvas>
+        
+        <div id="game-over-overlay">
+            <h1>¡ZIZO TE ATRAPÓ!</h1>
+            <p>El monstruo del túnel te ha devorado...</p>
+            <button id="btn-restart" onclick="restartGame()">REINTENTAR</button>
+        </div>
+
         <div id="touch-controls">
             <div class="control-group">
                 <div class="btn-touch" id="btn-left">◀</div>
