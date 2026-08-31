@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <title>Tunnel Runner PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            color: #00ff00;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            background: #000;
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 10;
+        }
+        #touch-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 25px;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .control-group {
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+        }
+        .btn-touch {
+            width: 65px;
+            height: 65px;
+            background: rgba(0, 255, 0, 0.15);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            font-size: 26px;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+            backdrop-filter: blur(4px);
+        }
+        .btn-touch:active {
+            background: rgba(0, 255, 0, 0.4);
+            transform: scale(0.92);
+        }
+        @media (min-width: 900px) {
+            #touch-controls { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">TUNNEL RUNNER | LEVEL: <span id="level">1</span> | SCORE: <span id="score">0</span></div>
+        <canvas id="gameCanvas" width="640" height="480"></canvas>
+        <div id="touch-controls">
+            <div class="control-group">
+                <div class="btn-touch" id="btn-left">◀</div>
+                <div class="btn-touch" id="btn-right">▶</div>
+            </div>
+            <div class="control-group">
+                <div class="btn-touch" id="btn-up">▲</div>
+                <div class="btn-touch" id="btn-down">▼</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.error(err));
+            });
+        }
+    </script>
+</body>
+</html>
