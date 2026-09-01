@@ -12,7 +12,18 @@ let level = 1;
 let score = 0;
 let lives = 3;
 let gameOver = false;
+
+// Audio Context y Latido de Tensión
 let audioCtx = null;
+let lastHeartbeatTime = 0;
+
+// Estado de Controles Continuos
+const inputState = {
+    up: false,
+    down: false,
+    left: false,
+    right: false
+};
 
 function initAudio() {
     if (!audioCtx) {
@@ -36,57 +47,132 @@ function playBeep(freq, type = 'square', duration = 0.08) {
     } catch(e) {}
 }
 
+// Reproduce el pulso de tensión acelerado según la proximidad del monstruo
+function playHeartbeat(minDistance) {
+    initAudio();
+    if (!audioCtx) return;
+
+    let now = Date.now();
+    // A menor distancia, menor intervalo entre pulso (mínimo 120ms, máximo 1200ms)
+    let interval = Math.max(120, Math.min(1200, minDistance * 100));
+
+    if (now - lastHeartbeatTime > interval) {
+        lastHeartbeatTime = now;
+        // Frecuencia dinámica: más alta cuando está pegado al jugador
+        let freq = 120 - Math.min(60, minDistance * 5);
+        playBeep(freq, 'sawtooth', 0.07);
+    }
+}
+
+// Control continuo táctil
+function startAction(action) {
+    initAudio();
+    inputState[action] = true;
+}
+
+function stopAction(action) {
+    inputState[action] = false;
+}
+
+// Procesamiento en tiempo real del movimiento guardado en el bucle
+function processInputs() {
+    if (gameOver) return;
+
+    const turnSpeed = 0.04;
+    const moveSpeed = 0.05;
+
+    if (inputState.left) turn(-turnSpeed);
+    if (inputState.right) turn(turnSpeed);
+    if (inputState.up) move(moveSpeed);
+    if (inputState.down) move(-moveSpeed);
+}
+
 function initLevel() {
     gameOver = false;
     let overlay = document.getElementById('game-over-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // 1. Crear Laberinto
+    // 1. Matriz limpia
     map = [];
     for (let r = 0; r < MAP_SIZE; r++) {
         map[r] = [];
         for (let c = 0; c < MAP_SIZE; c++) {
-            if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) {
-                map[r][c] = 1;
-            } else if (r % 2 === 0 && c % 2 === 0) {
-                map[r][c] = 1;
-            } else {
-                map[r][c] = Math.random() < 0.20 ? 1 : 0;
+            map[r][c] = 1;
+        }
+    }
+
+    // 2. Generación por DFS (Laberinto Garantizado)
+    function carvePassagesFrom(cx, cy) {
+        const directions = [
+            [0, -2], [0, 2], [-2, 0], [2, 0]
+        ].sort(() => Math.random() - 0.5);
+
+        map[cy][cx] = 0;
+
+        for (let [dx, dy] of directions) {
+            let nx = cx + dx;
+            let ny = cy + dy;
+
+            if (nx > 0 && nx < MAP_SIZE - 1 && ny > 0 && ny < MAP_SIZE - 1 && map[ny][nx] === 1) {
+                map[cy + dy / 2][cx + dx / 2] = 0;
+                carvePassagesFrom(nx, ny);
             }
         }
     }
 
-    map[1][1] = 0; map[1][2] = 0; map[2][1] = 0;
+    carvePassagesFrom(1, 1);
 
+    // Conexiones extra (Atajos)
+    for (let i = 0; i < 6; i++) {
+        let rx = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+        let ry = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
+        map[ry][rx] = 0;
+    }
+
+    // 3. Jugador
     player.x = 1.5; player.y = 1.5;
     player.dirX = 0; player.dirY = -1;
     player.planeX = 0.66; player.planeY = 0;
+    map[1][1] = 0; map[1][2] = 0; map[2][1] = 0;
 
-    // 2. Incrementar monstruos (+1 cada 5 niveles)
+    // 4. Monstruos
     const numMonsters = 1 + Math.floor((level - 1) / 5);
     monsters = [];
     for (let i = 0; i < numMonsters; i++) {
-        let mx = MAP_SIZE - 1.5 - (i * 2);
-        let my = MAP_SIZE - 1.5;
-        map[Math.floor(my)][Math.floor(mx)] = 0;
+        let mx = MAP_SIZE - 2;
+        let my = MAP_SIZE - 2 - (i * 2);
+        if (my < 1) my = MAP_SIZE - 2;
+        
+        map[my][mx] = 0;
+        map[my][mx - 1] = 0;
+
         monsters.push({
-            x: mx,
-            y: my,
+            x: mx + 0.5,
+            y: my + 0.5,
             speed: 0.02 + (level * 0.003)
         });
     }
 
-    // 3. Posicionar Llave
-    keyPos = { x: Math.floor(MAP_SIZE / 2) + 0.5, y: Math.floor(MAP_SIZE / 2) + 0.5, collected: false };
-    map[Math.floor(keyPos.y)][Math.floor(keyPos.x)] = 0;
+    // 5. Llave
+    let keyX = Math.floor(MAP_SIZE / 2);
+    let keyY = Math.floor(MAP_SIZE / 2);
+    map[keyY][keyX] = 0; 
+    map[keyY][keyX - 1] = 0;
+    keyPos = { x: keyX + 0.5, y: keyY + 0.5, collected: false };
 
-    // 4. Posicionar Puertas (1 Real, 2 Falsas)
+    // 6. Puertas
     doors = [
-        { x: MAP_SIZE - 1.5, y: MAP_SIZE - 1.5, isReal: true },
+        { x: MAP_SIZE - 1.5, y: 1.5, isReal: true },
         { x: 1.5, y: MAP_SIZE - 1.5, isReal: false },
-        { x: MAP_SIZE - 1.5, y: 1.5, isReal: false }
+        { x: MAP_SIZE - 1.5, y: MAP_SIZE - 1.5, isReal: false }
     ];
-    doors.forEach(d => map[Math.floor(d.y)][Math.floor(d.x)] = 0);
+    doors.forEach(d => {
+        let gx = Math.floor(d.x);
+        let gy = Math.floor(d.y);
+        map[gy][gx] = 0;
+        if (gx > 1) map[gy][gx - 1] = 0;
+        if (gy > 1) map[gy - 1][gx] = 0;
+    });
 
     updateUI();
 }
@@ -102,7 +188,6 @@ function updateUI() {
 
 function turn(angle) {
     if (gameOver) return;
-    initAudio();
     let oldDirX = player.dirX;
     player.dirX = player.dirX * Math.cos(angle) - player.dirY * Math.sin(angle);
     player.dirY = oldDirX * Math.sin(angle) + player.dirY * Math.cos(angle);
@@ -110,27 +195,30 @@ function turn(angle) {
     let oldPlaneX = player.planeX;
     player.planeX = player.planeX * Math.cos(angle) - player.planeY * Math.sin(angle);
     player.planeY = oldPlaneX * Math.sin(angle) + player.planeY * Math.cos(angle);
-    playBeep(200, 'sine', 0.03);
 }
 
 function move(speed) {
     if (gameOver) return;
-    initAudio();
     let newX = player.x + player.dirX * speed;
     let newY = player.y + player.dirY * speed;
 
     if (map[Math.floor(player.y)][Math.floor(newX)] === 0) player.x = newX;
     if (map[Math.floor(newY)][Math.floor(player.x)] === 0) player.y = newY;
-    playBeep(120, 'square', 0.04);
 }
 
 function updateMonstersAI() {
     if (gameOver) return;
 
+    let closestDistance = 999;
+
     monsters.forEach(m => {
         let dx = player.x - m.x;
         let dy = player.y - m.y;
         let dist = Math.hypot(dx, dy);
+
+        if (dist < closestDistance) {
+            closestDistance = dist;
+        }
 
         let angle = Math.atan2(dy, dx);
         let stepX = Math.cos(angle) * m.speed;
@@ -146,12 +234,18 @@ function updateMonstersAI() {
             triggerCaught();
         }
     });
+
+    // Activar sonido dinámico en función de la cercanía
+    if (!gameOver && monsters.length > 0) {
+        playHeartbeat(closestDistance);
+    }
 }
 
 function triggerCaught() {
     gameOver = true;
     lives--;
     updateUI();
+    playBeep(80, 'sawtooth', 0.4);
 
     if (lives <= 0) {
         document.getElementById('game-over-overlay').style.display = 'flex';
@@ -165,7 +259,6 @@ function restartGame() {
     initLevel();
 }
 
-// Verifica si están en el mismo corredor libre de muros
 function hasLineOfSight(x0, y0, x1, y1) {
     let dx = Math.abs(x1 - x0);
     let dy = Math.abs(y1 - y0);
@@ -183,6 +276,8 @@ function hasLineOfSight(x0, y0, x1, y1) {
 function render() {
     if (!ctx) return;
 
+    processInputs();
+
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -190,7 +285,7 @@ function render() {
     const h = canvas.height;
     let zBuffer = new Array(w);
 
-    // Renderizado Raycasting de Muros
+    // Renderizado Raycasting
     for (let x = 0; x < w; x += 4) {
         let cameraX = 2 * x / w - 1;
         let rayDirX = player.dirX + player.planeX * cameraX;
@@ -233,14 +328,14 @@ function render() {
         ctx.stroke();
     }
 
-    // Dibujar Monstruos (Visibles si comparten corredor)
+    // Monstruos
     monsters.forEach(m => {
         if (hasLineOfSight(player.x, player.y, m.x, m.y)) {
             renderSprite3D(m.x, m.y, '#ff0000', w, h, zBuffer, true);
         }
     });
 
-    // Dibujar Llave (Si no se ha recogido)
+    // Llave
     if (!keyPos.collected && hasLineOfSight(player.x, player.y, keyPos.x, keyPos.y)) {
         renderSprite3D(keyPos.x, keyPos.y, '#ffff00', w, h, zBuffer, false);
     }
@@ -354,9 +449,17 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Soporte para teclado (PC)
 window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') turn(-0.2);
-    if (e.key === 'ArrowRight') turn(0.2);
-    if (e.key === 'ArrowUp') move(0.2);
-    if (e.key === 'ArrowDown') move(-0.2);
+    if (e.key === 'ArrowLeft') inputState.left = true;
+    if (e.key === 'ArrowRight') inputState.right = true;
+    if (e.key === 'ArrowUp') inputState.up = true;
+    if (e.key === 'ArrowDown') inputState.down = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') inputState.left = false;
+    if (e.key === 'ArrowRight') inputState.right = false;
+    if (e.key === 'ArrowUp') inputState.up = false;
+    if (e.key === 'ArrowDown') inputState.down = false;
 });
