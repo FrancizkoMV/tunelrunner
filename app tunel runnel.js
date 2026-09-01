@@ -1,8 +1,8 @@
-// Tunnel Runner - Motor Corregido
+// Tunnel Runner - Corrección de Colisiones y Proyección
 let canvas, ctx;
 const MAP_SIZE = 15;
 let map = [];
-let player = { x: 1.5, y: 1.5, dirX: 0, dirY: -1, planeX: 0.66, planeY: 0 };
+let player = { x: 1.5, y: 1.5, dirX: 1, dirY: 0, planeX: 0, planeY: 0.66 }; // Mirando a la derecha
 
 let monsters = [];
 let doors = [];
@@ -13,22 +13,14 @@ let score = 0;
 let lives = 3;
 let gameOver = false;
 
-// Audio Context y Latido de Tensión
+// Audio Context
 let audioCtx = null;
 let lastHeartbeatTime = 0;
 
-// Estado de Controles Continuos
-const inputState = {
-    up: false,
-    down: false,
-    left: false,
-    right: false
-};
+const inputState = { up: false, down: false, left: false, right: false };
 
 function initAudio() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
 
 function playBeep(freq, type = 'square', duration = 0.08) {
@@ -74,7 +66,7 @@ function processInputs() {
     if (gameOver) return;
 
     const turnSpeed = 0.04;
-    const moveSpeed = 0.045;
+    const moveSpeed = 0.05;
 
     if (inputState.left) turn(-turnSpeed);
     if (inputState.right) turn(turnSpeed);
@@ -87,54 +79,42 @@ function initLevel() {
     let overlay = document.getElementById('game-over-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // 1. Crear matriz llena de paredes
+    // 1. Crear bordes exteriores sólides y limpiar el interior con estructura amplia
     map = [];
     for (let r = 0; r < MAP_SIZE; r++) {
         map[r] = [];
         for (let c = 0; c < MAP_SIZE; c++) {
-            map[r][c] = 1;
-        }
-    }
-
-    // 2. Generar caminos mediante DFS asegurando conectividad total
-    function carvePassagesFrom(cx, cy) {
-        const directions = [
-            [0, -2], [0, 2], [-2, 0], [2, 0]
-        ].sort(() => Math.random() - 0.5);
-
-        map[cy][cx] = 0;
-
-        for (let [dx, dy] of directions) {
-            let nx = cx + dx;
-            let ny = cy + dy;
-
-            if (nx > 0 && nx < MAP_SIZE - 1 && ny > 0 && ny < MAP_SIZE - 1 && map[ny][nx] === 1) {
-                map[cy + dy / 2][cx + dx / 2] = 0;
-                carvePassagesFrom(nx, ny);
+            if (r === 0 || r === MAP_SIZE - 1 || c === 0 || c === MAP_SIZE - 1) {
+                map[r][c] = 1; // Paredes de borde
+            } else {
+                map[r][c] = 0; // Pasillos abiertos por defecto
             }
         }
     }
 
-    // Iniciar el laberinto
-    carvePassagesFrom(1, 1);
-
-    // Abrir interconexiones adicionales para atajos
-    for (let i = 0; i < 10; i++) {
-        let rx = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
-        let ry = Math.floor(Math.random() * (MAP_SIZE - 2)) + 1;
-        map[ry][rx] = 0;
+    // 2. Insertar bloques internos dispersos para crear un laberinto donde NUNCA quedas atrapado
+    for (let r = 2; r < MAP_SIZE - 2; r += 2) {
+        for (let c = 2; c < MAP_SIZE - 2; c += 2) {
+            if (Math.random() > 0.3) {
+                map[r][c] = 1;
+            }
+        }
     }
 
-    // 3. Posición garantizada del Jugador (Esquina Superior Izquierda)
-    player.x = 1.5; player.y = 1.5;
-    player.dirX = 0; player.dirY = -1;
-    player.planeX = 0.66; player.planeY = 0;
-    map[1][1] = 0; map[1][2] = 0; map[2][1] = 0;
+    // 3. Posicionar e inicializar al Jugador en una zona 100% limpia y mirando a espacio abierto
+    player.x = 1.5; 
+    player.y = 1.5;
+    player.dirX = 1; player.dirY = 0;
+    player.planeX = 0; player.planeY = 0.66;
 
-    // 4. Velocidad progresiva de monstruos que se reinicia al agregar un nuevo monstruo
+    // Asegurar espacio alrededor de la entrada
+    map[1][1] = 0; map[1][2] = 0; map[1][3] = 0;
+    map[2][1] = 0; map[2][2] = 0;
+
+    // 4. Configurar Monstruos (Velocidad ajustada según sub-nivel)
     const numMonsters = 1 + Math.floor((level - 1) / 5);
     const subLevel = ((level - 1) % 5); 
-    const baseSpeed = 0.008 + (subLevel * 0.002); // Empieza lento (0.008) y sube gradualmente
+    const baseSpeed = 0.006 + (subLevel * 0.002); // Inicio muy lento
 
     monsters = [];
     for (let i = 0; i < numMonsters; i++) {
@@ -142,10 +122,7 @@ function initLevel() {
         let my = MAP_SIZE - 2 - (i * 2);
         if (my < 1) my = MAP_SIZE - 2;
 
-        // Liberar espacio de aparición
-        map[my][mx] = 0;
-        map[my][mx - 1] = 0;
-        map[my - 1][mx] = 0;
+        map[my][mx] = 0; map[my][mx - 1] = 0;
 
         monsters.push({
             x: mx + 0.5,
@@ -154,13 +131,13 @@ function initLevel() {
         });
     }
 
-    // 5. Ubicar Llave en una zona central limpia
+    // 5. Posicionar Llave en el centro
     let keyX = Math.floor(MAP_SIZE / 2);
     let keyY = Math.floor(MAP_SIZE / 2);
     map[keyY][keyX] = 0; map[keyY + 1][keyX] = 0; map[keyY][keyX + 1] = 0;
     keyPos = { x: keyX + 0.5, y: keyY + 0.5, collected: false };
 
-    // 6. Ubicar Puertas (1 Real cyan, 2 Falsas rojas)
+    // 6. Puertas (1 Real, 2 Falsas)
     doors = [
         { x: MAP_SIZE - 1.5, y: 1.5, isReal: true },
         { x: 1.5, y: MAP_SIZE - 1.5, isReal: false },
@@ -170,8 +147,6 @@ function initLevel() {
         let gx = Math.floor(d.x);
         let gy = Math.floor(d.y);
         map[gy][gx] = 0;
-        if (gx > 1) map[gy][gx - 1] = 0;
-        if (gy > 1) map[gy - 1][gx] = 0;
     });
 
     updateUI();
@@ -228,7 +203,7 @@ function updateMonstersAI() {
         if (map[Math.floor(m.y)][Math.floor(nextX)] === 0) m.x = nextX;
         if (map[Math.floor(nextY)][Math.floor(m.x)] === 0) m.y = nextY;
 
-        if (dist < 0.55) {
+        if (dist < 0.5) {
             triggerCaught();
         }
     });
@@ -311,7 +286,7 @@ function render() {
         ctx.stroke();
     }
 
-    // Renderizado 3D de Entidades (Proyección Z-Buffer directa)
+    // Renderizado 3D de Objetos (Puertas, Llaves y Monstruos)
     doors.forEach(d => {
         renderSprite3D(d.x, d.y, d.isReal ? '#00ffff' : '#ff0055', w, h, zBuffer, 'door');
     });
@@ -339,34 +314,32 @@ function renderSprite3D(objX, objY, color, w, h, zBuffer, type) {
     let transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
     let transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
 
-    if (transformY > 0.2) {
+    if (transformY > 0.1) {
         let spriteScreenX = Math.floor((w / 2) * (1 + transformX / transformY));
         let spriteHeight = Math.abs(Math.floor(h / transformY));
 
-        if (spriteScreenX > -100 && spriteScreenX < w + 100) {
-            let cx = spriteScreenX;
-            let cy = h / 2;
+        let cx = spriteScreenX;
+        let cy = h / 2;
 
-            // Verificar si el centro no está cubierto por una pared cercana
-            if (cx >= 0 && cx < w && transformY > zBuffer[cx]) return;
-
+        if (cx >= 0 && cx < w && transformY < zBuffer[cx]) {
             ctx.strokeStyle = color;
             ctx.fillStyle = color;
-            ctx.lineWidth = 2;
 
             if (type === 'monster') {
-                let size = Math.min(spriteHeight, 140);
+                let size = Math.min(spriteHeight, 130);
+                ctx.lineWidth = 3;
                 ctx.strokeRect(cx - size / 2, cy - size / 2, size, size);
                 ctx.fillRect(cx - size / 4, cy - size / 4, size / 5, size / 5);
                 ctx.fillRect(cx + size / 20, cy - size / 4, size / 5, size / 5);
             } else if (type === 'key') {
-                let size = Math.min(spriteHeight / 2, 40);
+                let size = Math.min(spriteHeight / 3, 25);
                 ctx.beginPath();
-                ctx.arc(cx, cy, size, 0, Math.PI * 2);
+                ctx.arc(cx, cy, Math.max(size, 8), 0, Math.PI * 2);
                 ctx.fill();
             } else if (type === 'door') {
-                let sizeW = Math.min(spriteHeight / 2, 60);
-                let sizeH = Math.min(spriteHeight, 120);
+                let sizeW = Math.min(spriteHeight / 2, 50);
+                let sizeH = Math.min(spriteHeight, 100);
+                ctx.lineWidth = 3;
                 ctx.strokeRect(cx - sizeW / 2, cy - sizeH / 2, sizeW, sizeH);
             }
         }
@@ -413,23 +386,23 @@ function renderMinimap() {
         }
     }
 
-    // Puertas en el Minimapa (Cyan = Real, Rojo = Falsa)
+    // Puertas (Cyan = Real, Rojo = Falsa)
     doors.forEach(d => {
         ctx.fillStyle = (d.isReal && keyPos.collected) ? "#00ffff" : "#ff0055";
-        ctx.fillRect(offX + d.x * mm - 1, offY + d.y * mm - 1, 3, 3);
+        ctx.fillRect(offX + d.x * mm - 1, offY + d.y * mm - 1, 4, 4);
     });
 
-    // Llave en el Minimapa (Amarillo)
+    // Llave (Amarillo)
     if (!keyPos.collected) {
         ctx.fillStyle = "#ffff00";
-        ctx.fillRect(offX + keyPos.x * mm - 1, offY + keyPos.y * mm - 1, 3, 3);
+        ctx.fillRect(offX + keyPos.x * mm - 1, offY + keyPos.y * mm - 1, 4, 4);
     }
 
     // Jugador (Blanco)
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(offX + player.x * mm - 1, offY + player.y * mm - 1, 3, 3);
+    ctx.fillRect(offX + player.x * mm - 1, offY + player.y * mm - 1, 4, 4);
 
-    // Monstruos (Rojo brillante)
+    // Monstruos (Rojo)
     monsters.forEach(m => {
         ctx.fillStyle = "#ff0000";
         ctx.fillRect(offX + m.x * mm - 1, offY + m.y * mm - 1, 4, 4);
@@ -445,7 +418,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Soporte Teclado PC
+// Teclado PC
 window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') inputState.left = true;
     if (e.key === 'ArrowRight') inputState.right = true;
