@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Tunnel Runner PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Courier New', Courier, monospace;
+            color: #00ff00;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+        }
+        #ui {
+            width: 100%;
+            font-size: 13px;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 6px #00ff00;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 10;
+            height: 30px;
+        }
+        canvas {
+            background: #000;
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+            max-width: 98vw;
+            max-height: 50vh;
+            aspect-ratio: 4 / 3;
+            object-fit: contain;
+        }
+        #touch-controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            z-index: 20;
+            margin-bottom: 10px;
+        }
+        .control-group {
+            display: flex;
+            gap: 12px;
+        }
+        .btn-touch {
+            width: 60px;
+            height: 60px;
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #00ff00;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+            touch-action: manipulation;
+        }
+        .btn-touch:active {
+            background: rgba(0, 255, 0, 0.6);
+            transform: scale(0.92);
+        }
+        #game-over-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0.4);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #game-over-overlay h1 { color: #ff0000; font-size: 28px; margin-bottom: 8px; }
+        #game-over-overlay p { color: #fff; font-size: 15px; margin-bottom: 20px; }
+        #btn-restart {
+            padding: 12px 28px;
+            background: #ff0000;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 0 12px #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <div>TUNNEL</div>
+            <div>NIV: <span id="level">1</span></div>
+            <div>PTS: <span id="score">0</span></div>
+            <div><span id="lives">❤️❤️❤️</span></div>
+        </div>
+        
+        <canvas id="gameCanvas" width="640" height="480"></canvas>
+        
+        <div id="game-over-overlay">
+            <h1>¡TE ATRAPARON!</h1>
+            <p>El monstruo del túnel te devoró...</p>
+            <button id="btn-restart" onclick="restartGame()">REINTENTAR</button>
+        </div>
+
+        <div id="touch-controls">
+            <div class="control-group">
+                <div class="btn-touch" id="btn-left" ontouchstart="turn(-0.26); event.preventDefault();">◀</div>
+                <div class="btn-touch" id="btn-right" ontouchstart="turn(0.26); event.preventDefault();">▶</div>
+            </div>
+            <div class="control-group">
+                <div class="btn-touch" id="btn-up" ontouchstart="move(0.25); event.preventDefault();">▲</div>
+                <div class="btn-touch" id="btn-down" ontouchstart="move(-0.25); event.preventDefault();">▼</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
