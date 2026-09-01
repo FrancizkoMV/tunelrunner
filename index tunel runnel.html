@@ -128,16 +128,40 @@
 
         <div id="touch-controls">
             <div class="control-group">
-                <div class="btn-touch" id="btn-left" ontouchstart="turn(-0.26); event.preventDefault();">◀</div>
-                <div class="btn-touch" id="btn-right" ontouchstart="turn(0.26); event.preventDefault();">▶</div>
+                <div class="btn-touch" id="btn-left" 
+                     ontouchstart="startAction('left'); event.preventDefault();" 
+                     ontouchend="stopAction('left')" 
+                     onmousedown="startAction('left')" 
+                     onmouseup="stopAction('left')">◀</div>
+                <div class="btn-touch" id="btn-right" 
+                     ontouchstart="startAction('right'); event.preventDefault();" 
+                     ontouchend="stopAction('right')" 
+                     onmousedown="startAction('right')" 
+                     onmouseup="stopAction('right')">▶</div>
             </div>
             <div class="control-group">
-                <div class="btn-touch" id="btn-up" ontouchstart="move(0.25); event.preventDefault();">▲</div>
-                <div class="btn-touch" id="btn-down" ontouchstart="move(-0.25); event.preventDefault();">▼</div>
+                <div class="btn-touch" id="btn-up" 
+                     ontouchstart="startAction('up'); event.preventDefault();" 
+                     ontouchend="stopAction('up')" 
+                     onmousedown="startAction('up')" 
+                     onmouseup="stopAction('up')">▲</div>
+                <div class="btn-touch" id="btn-down" 
+                     ontouchstart="startAction('down'); event.preventDefault();" 
+                     ontouchend="stopAction('down')" 
+                     onmouseup="stopAction('down')" 
+                     onmousedown="startAction('down')" 
+                     onmouseup="stopAction('down')">▼</div>
             </div>
         </div>
     </div>
 
     <script src="app.js" defer></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(() => {});
+        });
+      }
+    </script>
 </body>
 </html>
